@@ -43,19 +43,24 @@ docker compose exec backend python manage.py seed
 Либо через curl:
 
 ```bash
-# Войти
+# Войти и сохранить куки
 curl -c cookies.txt -s -X POST http://localhost:8080/api/auth/login/ \
   -H "Content-Type: application/json" \
   -d '{"username": "chatter1", "password": "demo1234"}'
 
+# Извлечь CSRF-токен из куки (требуется для POST)
+CSRF=$(grep csrftoken cookies.txt | awk '{print $NF}')
+
 # Симулировать сообщение фана в случайный диалог
 curl -b cookies.txt -s -X POST http://localhost:8080/api/demo/fan-message/ \
   -H "Content-Type: application/json" \
+  -H "X-CSRFToken: $CSRF" \
   -d '{}'
 
 # В конкретный диалог с текстом
 curl -b cookies.txt -s -X POST http://localhost:8080/api/demo/fan-message/ \
   -H "Content-Type: application/json" \
+  -H "X-CSRFToken: $CSRF" \
   -d '{"conversation_id": 1, "text": "Hey, are you there?"}'
 ```
 
