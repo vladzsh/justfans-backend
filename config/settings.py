@@ -15,6 +15,7 @@ env = environ.Env(
     PRESENCE_GRACE_SECONDS=(int, 30),
     HEARTBEAT_SECONDS=(int, 10),
     MESSAGES_PAGE_SIZE=(int, 30),
+    CSRF_TRUSTED_ORIGINS=(list, []),
 )
 
 environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
@@ -22,6 +23,8 @@ environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "daphne",
