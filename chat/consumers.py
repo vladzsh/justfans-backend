@@ -75,29 +75,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         client_msg_id = payload.get("client_msg_id")
 
         if not text or not str(text).strip():
-            await self._send_error("empty_text", "Text must not be empty.")
+            await self._send_error("empty_text", "Text must not be empty.", client_msg_id)
             return
 
         if kind == "ppv":
             if ppv_price is None:
-                await self._send_error("ppv_price_required", "ppv_price is required for PPV messages.")
+                await self._send_error("ppv_price_required", "ppv_price is required for PPV messages.", client_msg_id)
                 return
             try:
                 ppv_price = float(ppv_price)
                 if ppv_price <= 0:
                     raise ValueError
             except (ValueError, TypeError):
-                await self._send_error("ppv_price_invalid", "ppv_price must be positive.")
+                await self._send_error("ppv_price_invalid", "ppv_price must be positive.", client_msg_id)
                 return
         elif kind == "text" and ppv_price is not None:
-            await self._send_error("ppv_price_forbidden", "ppv_price not allowed for text messages.")
+            await self._send_error("ppv_price_forbidden", "ppv_price not allowed for text messages.", client_msg_id)
             return
 
         owned = await sync_to_async(
             Conversation.objects.filter(id=conversation_id, chatter=self.user).exists
         )()
         if not owned:
-            await self._send_error("forbidden", "Conversation not found or not yours.")
+            await self._send_error("forbidden", "Conversation not found or not yours.", client_msg_id)
             return
 
         try:
@@ -110,7 +110,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 client_msg_id=client_msg_id,
             )
         except Exception as e:
-            await self._send_error("internal_error", str(e))
+            await self._send_error("internal_error", str(e), client_msg_id)
             return
 
         def _serialize_message_and_conv():
@@ -136,8 +136,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             {"type": "chat.monitor_update", "payload": monitor_payload},
         )
 
-    async def _send_error(self, code, detail):
-        await self.send(text_data=json.dumps({"type": "error", "payload": {"code": code, "detail": detail}}))
+    async def _send_error(self, code, detail, client_msg_id=None):
+        payload = {"code": code, "detail": detail}
+        if client_msg_id is not None:
+            payload["client_msg_id"] = client_msg_id
+        await self.send(text_data=json.dumps({"type": "error", "payload": payload}))
 
     async def _push_monitor_update(self, chatter_id):
         try:

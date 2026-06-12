@@ -110,6 +110,7 @@ async def test_ws_empty_text_returns_error(chatter, conversation):
     connected, _ = await communicator.connect()
     assert connected
 
+    cid = str(uuid.uuid4())
     await communicator.send_json_to(
         {
             "type": "message.send",
@@ -117,7 +118,7 @@ async def test_ws_empty_text_returns_error(chatter, conversation):
                 "conversation_id": conversation.id,
                 "text": "   ",
                 "kind": "text",
-                "client_msg_id": str(uuid.uuid4()),
+                "client_msg_id": cid,
             },
         }
     )
@@ -125,6 +126,7 @@ async def test_ws_empty_text_returns_error(chatter, conversation):
     response = await communicator.receive_json_from(timeout=5)
     assert response["type"] == "error"
     assert response["payload"]["code"] == "empty_text"
+    assert str(response["payload"]["client_msg_id"]) == cid
 
     await communicator.disconnect()
 
@@ -142,6 +144,7 @@ async def test_ws_foreign_conversation_returns_error(chatter, conversation2):
     connected, _ = await communicator.connect()
     assert connected
 
+    cid = str(uuid.uuid4())
     await communicator.send_json_to(
         {
             "type": "message.send",
@@ -149,13 +152,14 @@ async def test_ws_foreign_conversation_returns_error(chatter, conversation2):
                 "conversation_id": conversation2.id,
                 "text": "Trying to intrude",
                 "kind": "text",
-                "client_msg_id": str(uuid.uuid4()),
+                "client_msg_id": cid,
             },
         }
     )
 
     response = await communicator.receive_json_from(timeout=5)
     assert response["type"] == "error"
+    assert str(response["payload"]["client_msg_id"]) == cid
 
     await communicator.disconnect()
 
@@ -172,6 +176,7 @@ async def test_ws_ppv_without_price_returns_error(chatter, conversation):
     connected, _ = await communicator.connect()
     assert connected
 
+    cid = str(uuid.uuid4())
     await communicator.send_json_to(
         {
             "type": "message.send",
@@ -179,7 +184,7 @@ async def test_ws_ppv_without_price_returns_error(chatter, conversation):
                 "conversation_id": conversation.id,
                 "text": "My PPV content",
                 "kind": "ppv",
-                "client_msg_id": str(uuid.uuid4()),
+                "client_msg_id": cid,
             },
         }
     )
@@ -187,8 +192,63 @@ async def test_ws_ppv_without_price_returns_error(chatter, conversation):
     response = await communicator.receive_json_from(timeout=5)
     assert response["type"] == "error"
     assert "ppv_price" in response["payload"]["code"]
+    assert str(response["payload"]["client_msg_id"]) == cid
 
     await communicator.disconnect()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_ws_message_send_triggers_monitor_update(chatter, teamlead, conversation):
+    """When chatter sends a message, teamlead receives monitor.update."""
+    chatter_session = await _async_make_session(chatter)
+    teamlead_session = await _async_make_session(teamlead)
+
+    chatter_comm = WebsocketCommunicator(
+        application,
+        "/ws/",
+        headers=[(b"cookie", f"sessionid={chatter_session}".encode())],
+    )
+    teamlead_comm = WebsocketCommunicator(
+        application,
+        "/ws/",
+        headers=[(b"cookie", f"sessionid={teamlead_session}".encode())],
+    )
+
+    # teamlead subscribes to "monitor" group first so it receives all subsequent events
+    teamlead_connected, _ = await teamlead_comm.connect()
+    assert teamlead_connected
+
+    # chatter connects — triggers _push_monitor_update to "monitor" group
+    chatter_connected, _ = await chatter_comm.connect()
+    assert chatter_connected
+
+    # teamlead receives the monitor.update emitted when chatter joined
+    initial = await teamlead_comm.receive_json_from(timeout=5)
+    assert initial["type"] == "monitor.update"
+
+    await chatter_comm.send_json_to(
+        {
+            "type": "message.send",
+            "payload": {
+                "conversation_id": conversation.id,
+                "text": "Hello from chatter!",
+                "kind": "text",
+            },
+        }
+    )
+
+    # chatter receives its own message.new
+    chatter_msg = await chatter_comm.receive_json_from(timeout=5)
+    assert chatter_msg["type"] == "message.new"
+
+    # teamlead receives monitor.update with updated chatter snapshot
+    monitor_msg = await teamlead_comm.receive_json_from(timeout=5)
+    assert monitor_msg["type"] == "monitor.update"
+    assert monitor_msg["payload"]["id"] == chatter.id
+
+    await chatter_comm.disconnect()
+    await teamlead_comm.disconnect()
 
 
 from asgiref.sync import sync_to_async
