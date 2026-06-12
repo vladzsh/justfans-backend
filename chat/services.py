@@ -1,3 +1,4 @@
+import logging
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db import transaction
@@ -5,6 +6,8 @@ from django.utils import timezone
 
 from chat.models import Conversation, Message
 from chat.serializers import ConversationSerializer, MessageSerializer
+
+logger = logging.getLogger(__name__)
 
 
 def build_chatter_snapshot(chatter_id):
@@ -94,7 +97,8 @@ def broadcast_message_new_sync(msg_id, conv_id):
     try:
         msg = Message.objects.get(id=msg_id)
         conv = Conversation.objects.select_related("fan", "content_model", "chatter").get(id=conv_id)
-    except Exception:
+    except Exception as e:
+        logger.exception("Error in broadcast_message_new_sync for msg_id=%s conv_id=%s: %s", msg_id, conv_id, e)
         return
 
     msg_data = MessageSerializer(msg).data
@@ -120,7 +124,8 @@ def broadcast_message_new_sync(msg_id, conv_id):
                 "payload": monitor_payload,
             },
         )
-    except Exception:
+    except Exception as e:
+        logger.exception("Error sending channel messages for msg_id=%s conv_id=%s: %s", msg_id, conv_id, e)
         pass
 
 

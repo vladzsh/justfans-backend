@@ -57,4 +57,8 @@ class ConversationSerializer(serializers.ModelSerializer):
         msg = obj.messages.order_by("-id").first()
         if msg is None:
             return None
-        return {"text": msg.text, "sender": msg.sender, "created_at": msg.created_at}
+        return {
+            "text": msg.text,
+            "sender": msg.sender,
+            "created_at": msg.created_at.isoformat() if msg.created_at else None,
+        }
