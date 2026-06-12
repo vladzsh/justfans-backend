@@ -71,7 +71,7 @@ class Message(models.Model):
                 name="unique_conversation_client_msg_id",
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(kind="text", ppv_price__isnull=True)
                     | models.Q(kind="ppv", ppv_price__isnull=False, ppv_price__gt=0)
                 ),
