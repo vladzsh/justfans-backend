@@ -4,6 +4,16 @@
 
 ---
 
+## Деплой
+
+Рабочее решение развёрнуто на Railway (backend + PostgreSQL + Redis + frontend-nginx):
+
+**https://frontend-production-f3fd.up.railway.app**
+
+Тестовые данные прогнаны сидером, учётки — в таблице выше. Чтобы проверить realtime в одиночку: войдите чатером и тимлидом в двух окнах и нажмите «Симулировать сообщение фана» в открытом диалоге.
+
+---
+
 ## Запуск
 
 ```bash
@@ -96,16 +106,6 @@ docker compose exec backend pytest
 cd justfans-backend
 python -m pytest
 ```
-
----
-
-## Деплой
-
-Рабочее решение развёрнуто на Railway (backend + PostgreSQL + Redis + frontend-nginx):
-
-**https://frontend-production-f3fd.up.railway.app**
-
-Тестовые данные прогнаны сидером, учётки — в таблице выше. Чтобы проверить realtime в одиночку: войдите чатером и тимлидом в двух окнах и нажмите «Симулировать сообщение фана» в открытом диалоге.
 
 ---
 
