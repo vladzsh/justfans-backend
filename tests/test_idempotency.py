@@ -2,10 +2,9 @@
 import uuid
 
 import pytest
-from pytest_django.fixtures import django_capture_on_commit_callbacks
 
 from chat.models import Message
-from chat.services import create_message
+from chat.services import create_message, schedule_message_broadcast
 
 
 @pytest.mark.django_db(transaction=True)
@@ -51,32 +50,32 @@ def test_duplicate_client_msg_id_returns_existing(conversation):
     assert msg2.text == "Original"
 
 
-@pytest.mark.django_db
-def test_on_commit_not_called_on_rollback(conversation):
-    """Events must not fire when transaction rolls back."""
-    callbacks = []
-
+@pytest.mark.django_db(transaction=True)
+def test_broadcast_not_called_on_rollback(conversation, monkeypatch):
+    """schedule_message_broadcast's on_commit callback does not fire when the wrapping
+    transaction is rolled back."""
     from django.db import transaction
 
-    def boom():
-        with transaction.atomic():
-            from chat.models import Message as M
-            M.objects.create(
-                conversation=conversation,
-                sender="fan",
-                text="will rollback",
-                kind="text",
-            )
-            transaction.on_commit(lambda: callbacks.append("fired"))
-            raise Exception("forced rollback")
+    broadcast_calls = []
+    monkeypatch.setattr(
+        "chat.services.broadcast_message_new_sync",
+        lambda msg_id, conv_id: broadcast_calls.append((msg_id, conv_id)),
+    )
 
     try:
-        boom()
+        with transaction.atomic():
+            msg = create_message(
+                conversation_id=conversation.id,
+                sender=Message.SENDER_FAN,
+                text="will rollback",
+            )
+            schedule_message_broadcast(msg.id, conversation.id)
+            raise Exception("forced rollback")
     except Exception:
         pass
 
-    assert callbacks == [], "on_commit fired despite rollback"
-    assert Message.objects.filter(conversation=conversation).count() == 0
+    assert broadcast_calls == [], "broadcast fired despite rollback"
+    assert Message.objects.filter(conversation=conversation, text="will rollback").count() == 0
 
 
 @pytest.mark.django_db
