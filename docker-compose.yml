@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-justfans}
+      POSTGRES_USER: ${POSTGRES_USER:-justfans}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-justfans}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-justfans} -d ${POSTGRES_DB:-justfans}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://justfans:justfans@db:5432/justfans}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key-change-in-production}
+      DEBUG: ${DEBUG:-True}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      OVERDUE_SECONDS: ${OVERDUE_SECONDS:-120}
+      PRESENCE_GRACE_SECONDS: ${PRESENCE_GRACE_SECONDS:-30}
+      HEARTBEAT_SECONDS: ${HEARTBEAT_SECONDS:-10}
+      MESSAGES_PAGE_SIZE: ${MESSAGES_PAGE_SIZE:-30}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ${FRONTEND_CONTEXT:-https://github.com/vladzsh/justfans-frontend.git}
+    environment:
+      BACKEND_HOST: ${BACKEND_HOST:-backend}
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres_data:
+  redis_data:
