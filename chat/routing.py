@@ -1,3 +1,7 @@
 from django.urls import path
 
-websocket_urlpatterns = []
+from chat.consumers import ChatConsumer
+
+websocket_urlpatterns = [
+    path("ws/", ChatConsumer.as_asgi()),
+]
