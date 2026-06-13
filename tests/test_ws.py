@@ -25,9 +25,12 @@ def make_session_for_user(user):
 @pytest.mark.asyncio
 async def test_ws_rejects_unauthenticated():
     communicator = WebsocketCommunicator(application, "/ws/")
-    connected, code = await communicator.connect()
-    assert not connected
-    assert code == 4401
+    connected, _ = await communicator.connect()
+    assert connected
+
+    response = await communicator.receive_output(timeout=5)
+    assert response["type"] == "websocket.close"
+    assert response.get("code") == 4401
     await communicator.disconnect()
 
 

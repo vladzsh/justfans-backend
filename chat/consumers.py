@@ -2,6 +2,7 @@ import json
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.utils import timezone
 from rest_framework.utils.encoders import JSONEncoder
 
 from chat.models import Conversation, Message
@@ -18,6 +19,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
         if user is None or not user.is_authenticated:
+            await self.accept()
             await self.close(code=4401)
             return
 
@@ -29,6 +31,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         elif user.role == "teamlead":
             self.group_name = "monitor"
         else:
+            await self.accept()
             await self.close(code=4401)
             return
 
