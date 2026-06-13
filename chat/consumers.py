@@ -65,6 +65,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if msg_type == "ping":
             if self.user.role == "chatter":
                 await sync_to_async(set_presence)(self.user.id)
+                last_seen = timezone.now().isoformat()
+                await self.channel_layer.group_send(
+                    "monitor",
+                    {
+                        "type": "chat.presence_update",
+                        "payload": {"chatter_id": self.user.id, "last_seen": last_seen},
+                    },
+                )
             await self.send(text_data=json.dumps({"type": "pong", "payload": {}}))
 
         elif msg_type == "message.send":
@@ -165,3 +173,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_monitor_update(self, event):
         await self.send(text_data=json.dumps({"type": "monitor.update", "payload": event["payload"]}))
+
+    async def chat_presence_update(self, event):
+        await self.send(text_data=json.dumps({"type": "presence.update", "payload": event["payload"]}))

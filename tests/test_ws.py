@@ -254,6 +254,48 @@ async def test_ws_message_send_triggers_monitor_update(chatter, teamlead, conver
     await teamlead_comm.disconnect()
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_ws_ping_sends_presence_update_to_monitor(chatter, teamlead):
+    """Chatter ping causes presence.update with chatter_id and last_seen in monitor group."""
+    teamlead_session = await _async_make_session(teamlead)
+    chatter_session = await _async_make_session(chatter)
+
+    teamlead_comm = WebsocketCommunicator(
+        application,
+        "/ws/",
+        headers=[(b"cookie", f"sessionid={teamlead_session}".encode())],
+    )
+    chatter_comm = WebsocketCommunicator(
+        application,
+        "/ws/",
+        headers=[(b"cookie", f"sessionid={chatter_session}".encode())],
+    )
+
+    teamlead_connected, _ = await teamlead_comm.connect()
+    assert teamlead_connected
+
+    chatter_connected, _ = await chatter_comm.connect()
+    assert chatter_connected
+
+    # Drain the monitor.update emitted on chatter connect
+    initial = await teamlead_comm.receive_json_from(timeout=5)
+    assert initial["type"] == "monitor.update"
+
+    await chatter_comm.send_json_to({"type": "ping", "payload": {}})
+
+    pong = await chatter_comm.receive_json_from(timeout=5)
+    assert pong["type"] == "pong"
+
+    presence_event = await teamlead_comm.receive_json_from(timeout=5)
+    assert presence_event["type"] == "presence.update"
+    assert presence_event["payload"]["chatter_id"] == chatter.id
+    assert presence_event["payload"]["last_seen"] is not None
+
+    await chatter_comm.disconnect()
+    await teamlead_comm.disconnect()
+
+
 from asgiref.sync import sync_to_async
 
 
