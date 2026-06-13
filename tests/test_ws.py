@@ -248,7 +248,8 @@ async def test_ws_message_send_triggers_monitor_update(chatter, teamlead, conver
     # teamlead receives monitor.update with updated chatter snapshot
     monitor_msg = await teamlead_comm.receive_json_from(timeout=5)
     assert monitor_msg["type"] == "monitor.update"
-    assert monitor_msg["payload"]["id"] == chatter.id
+    assert monitor_msg["payload"]["chatter"]["id"] == chatter.id
+    assert "models" in monitor_msg["payload"]
 
     await chatter_comm.disconnect()
     await teamlead_comm.disconnect()

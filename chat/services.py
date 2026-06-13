@@ -4,10 +4,45 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 from django.utils import timezone
 
-from chat.models import Conversation, Message
+from chat.models import ContentModel, Conversation, Message
 from chat.serializers import ConversationSerializer, MessageSerializer
 
 logger = logging.getLogger(__name__)
+
+
+def build_models_snapshot():
+    """Build the full models aggregation for the monitor: all ContentModels ordered by id."""
+    models = ContentModel.objects.order_by("id")
+    result = []
+    for model in models:
+        dialogs_count = Conversation.objects.filter(content_model=model).count()
+        waiting = list(
+            Conversation.objects.filter(
+                content_model=model,
+                awaiting_reply_since__isnull=False,
+            ).values("id", "awaiting_reply_since", "fan__name")
+        )
+        result.append(
+            {
+                "id": model.id,
+                "name": model.name,
+                "avatar": model.avatar,
+                "dialogs_count": dialogs_count,
+                "waiting": [
+                    {
+                        "conversation_id": w["id"],
+                        "fan_name": w["fan__name"],
+                        "waiting_since": (
+                            w["awaiting_reply_since"].isoformat()
+                            if w["awaiting_reply_since"]
+                            else None
+                        ),
+                    }
+                    for w in waiting
+                ],
+            }
+        )
+    return result
 
 
 def build_chatter_snapshot(chatter_id):
@@ -104,7 +139,8 @@ def broadcast_message_new_sync(msg_id, conv_id):
     msg_data = MessageSerializer(msg).data
     conv_data = ConversationSerializer(conv).data
     chatter_id = conv.chatter_id
-    monitor_payload = build_chatter_snapshot(chatter_id)
+    chatter_snapshot = build_chatter_snapshot(chatter_id)
+    models_snapshot = build_models_snapshot()
 
     channel_layer = get_channel_layer()
     if channel_layer is None:
@@ -121,7 +157,7 @@ def broadcast_message_new_sync(msg_id, conv_id):
             "monitor",
             {
                 "type": "chat.monitor_update",
-                "payload": monitor_payload,
+                "payload": {"chatter": chatter_snapshot, "models": models_snapshot},
             },
         )
     except Exception as e:

@@ -7,7 +7,7 @@ from rest_framework.utils.encoders import JSONEncoder
 
 from chat.models import Conversation, Message
 from chat.presence import delete_presence, set_presence
-from chat.services import build_chatter_snapshot, create_message
+from chat.services import build_chatter_snapshot, build_models_snapshot, create_message
 from chat.serializers import ConversationSerializer, MessageSerializer
 
 
@@ -141,10 +141,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             },
         )
 
-        monitor_payload = await sync_to_async(build_chatter_snapshot)(self.user.id)
+        chatter_snapshot = await sync_to_async(build_chatter_snapshot)(self.user.id)
+        models_snapshot = await sync_to_async(build_models_snapshot)()
         await self.channel_layer.group_send(
             "monitor",
-            {"type": "chat.monitor_update", "payload": monitor_payload},
+            {
+                "type": "chat.monitor_update",
+                "payload": {"chatter": chatter_snapshot, "models": models_snapshot},
+            },
         )
 
     async def _send_error(self, code, detail, client_msg_id=None):
@@ -155,10 +159,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def _push_monitor_update(self, chatter_id):
         try:
-            snapshot = await sync_to_async(build_chatter_snapshot)(chatter_id)
+            chatter_snapshot = await sync_to_async(build_chatter_snapshot)(chatter_id)
+            models_snapshot = await sync_to_async(build_models_snapshot)()
             await self.channel_layer.group_send(
                 "monitor",
-                {"type": "chat.monitor_update", "payload": snapshot},
+                {
+                    "type": "chat.monitor_update",
+                    "payload": {"chatter": chatter_snapshot, "models": models_snapshot},
+                },
             )
         except Exception:
             pass

@@ -5,6 +5,7 @@ from accounts.models import User
 from accounts.permissions import IsTeamlead
 from chat.models import Conversation
 from chat.presence import get_presence_data
+from chat.services import build_models_snapshot
 
 
 class MonitorSnapshotView(APIView):
@@ -43,4 +44,4 @@ class MonitorSnapshotView(APIView):
                     ],
                 }
             )
-        return Response({"chatters": result})
+        return Response({"chatters": result, "models": build_models_snapshot()})
