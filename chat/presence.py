@@ -23,21 +23,25 @@ def _get_redis():
 
 
 def set_presence(user_id: int) -> None:
-    """Mark user as online with TTL = presence_grace_seconds."""
+    """Mark user as online (ephemeral) and update last seen (persistent)."""
     client = _get_redis()
     if client is None:
         return
     ttl = settings.PRESENCE_GRACE_SECONDS
-    key = f"presence:{user_id}"
+    presence_key = f"presence:{user_id}"
+    last_seen_key = f"last_seen:{user_id}"
     try:
         now_iso = datetime.now(tz=timezone.utc).isoformat()
-        client.setex(key, ttl, now_iso)
+        # Ephemeral key for 'online' status
+        client.setex(presence_key, ttl, "1")
+        # Persistent key for 'last seen' timestamp
+        client.set(last_seen_key, now_iso)
     except Exception as e:
         logger.debug("Presence set failed: %s", e)
 
 
 def delete_presence(user_id: int) -> None:
-    """Remove presence key on explicit disconnect."""
+    """Remove ephemeral presence key on explicit disconnect."""
     client = _get_redis()
     if client is None:
         return
@@ -53,10 +57,12 @@ def get_presence_data(user_id: int) -> dict:
     if client is None:
         return {"connected": False, "last_seen": None}
     try:
-        val = client.get(f"presence:{user_id}")
-        if val is None:
-            return {"connected": False, "last_seen": None}
-        return {"connected": True, "last_seen": val}
+        is_connected = client.exists(f"presence:{user_id}")
+        last_seen = client.get(f"last_seen:{user_id}")
+        return {
+            "connected": bool(is_connected),
+            "last_seen": last_seen,
+        }
     except Exception as e:
         logger.debug("Presence get failed: %s", e)
         return {"connected": False, "last_seen": None}
