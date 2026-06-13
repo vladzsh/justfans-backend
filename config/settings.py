@@ -12,8 +12,8 @@ env = environ.Env(
     REDIS_URL=(str, "redis://localhost:6379/0"),
     DJANGO_SECRET_KEY=(str, "dev-secret-key-change-in-production"),
     OVERDUE_SECONDS=(int, 120),
-    PRESENCE_GRACE_SECONDS=(int, 30),
-    HEARTBEAT_SECONDS=(int, 10),
+    PRESENCE_GRACE_SECONDS=(int, 15),
+    HEARTBEAT_SECONDS=(int, 5),
     MESSAGES_PAGE_SIZE=(int, 30),
     CSRF_TRUSTED_ORIGINS=(list, []),
 )
