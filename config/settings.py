@@ -15,7 +15,7 @@ env = environ.Env(
     PRESENCE_GRACE_SECONDS=(int, 15),
     HEARTBEAT_SECONDS=(int, 5),
     MESSAGES_PAGE_SIZE=(int, 30),
-    CSRF_TRUSTED_ORIGINS=(list, []),
+    CSRF_TRUSTED_ORIGINS=(list, ["http://localhost:8080", "http://127.0.0.1:8080"]),
 )
 
 environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
