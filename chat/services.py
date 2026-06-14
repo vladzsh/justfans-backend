@@ -57,6 +57,16 @@ def build_chatter_snapshot(chatter_id):
             awaiting_reply_since__isnull=False,
         ).values("id", "awaiting_reply_since", "fan__name")
     )
+    all_conversations = list(
+        Conversation.objects.filter(chatter=chatter).values(
+            "id",
+            "fan__name",
+            "awaiting_reply_since",
+            "content_model__id",
+            "content_model__name",
+            "content_model__avatar",
+        )
+    )
     presence = get_presence_data(chatter.id)
     dialogs_count = Conversation.objects.filter(chatter=chatter).count()
 
@@ -73,6 +83,21 @@ def build_chatter_snapshot(chatter_id):
                 "waiting_since": w["awaiting_reply_since"].isoformat() if w["awaiting_reply_since"] else None,
             }
             for w in waiting
+        ],
+        "dialogs": [
+            {
+                "conversation_id": d["id"],
+                "fan_name": d["fan__name"],
+                "awaiting_reply_since": (
+                    d["awaiting_reply_since"].isoformat()
+                    if d["awaiting_reply_since"]
+                    else None
+                ),
+                "model_id": d["content_model__id"],
+                "model_name": d["content_model__name"],
+                "model_avatar": d["content_model__avatar"],
+            }
+            for d in all_conversations
         ],
     }
 
