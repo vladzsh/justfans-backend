@@ -86,6 +86,7 @@ class Command(BaseCommand):
             # chatter3 conversations
             (chatters[2], fans[4], content_models[1], True),   # awaiting
             (chatters[2], fans[5], content_models[2], False),
+            (chatters[2], fans[1], content_models[0], True),   # awaiting, extra Stella dialog
             # chatter4 conversations
             (chatters[3], fans[6], content_models[0], False),
             (chatters[3], fans[7], content_models[1], False),
