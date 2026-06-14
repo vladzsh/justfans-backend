@@ -24,7 +24,7 @@ Local dev runs on sqlite by default; `DATABASE_URL`/`REDIS_URL` env switch to Po
 - **`chat/consumers.py`** — single `/ws/` endpoint for both roles; groups `chatter.{user_id}` and `monitor`; close code 4401 when unauthenticated; envelope `{"type", "payload"}`. WS `error` payload must carry `client_msg_id` when it relates to a `message.send`.
 - **Idempotency:** unique `(conversation_id, client_msg_id)`; repeated `message.send` re-broadcasts the existing message instead of inserting.
 - **Resync contract:** `Message.id` is the cursor — `before_id` (history pagination, DESC) and `GET /api/sync/?after_id=` (ASC, cap 500, plus conversation snapshots). Overdue/offline are *not* computed server-side; the API returns timestamps and the SPA does the math.
-- **Presence:** Redis `SETEX` with TTL = grace, refreshed by WS `ping`; connect/disconnect push `monitor.update`.
+- **Presence:** Redis `SETEX` with TTL = grace, refreshed by WS `ping`; connect/disconnect push `monitor.update`. `last_seen` is a separate non-expiring key (survives presence-TTL expiry). Keep `PRESENCE_GRACE_SECONDS` ≥ ~3× `HEARTBEAT_SECONDS` (currently 15/5) or live chatters flap offline on one late heartbeat.
 
 ## Testing notes
 
