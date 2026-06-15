@@ -24,10 +24,10 @@ FANS_DATA = [
 ]
 
 CHATTERS_DATA = [
-    {"username": "chatter1", "display_name": "Alice"},
-    {"username": "chatter2", "display_name": "Bob"},
-    {"username": "chatter3", "display_name": "Carol"},
-    {"username": "chatter4", "display_name": "Dave"},
+    {"username": "chatter1", "display_name": "chatter1"},
+    {"username": "chatter2", "display_name": "chatter2"},
+    {"username": "chatter3", "display_name": "chatter3"},
+    {"username": "chatter4", "display_name": "chatter4"},
 ]
 
 TEAMLEAD_DATA = {"username": "teamlead1", "display_name": "Team Lead"}

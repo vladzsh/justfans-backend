@@ -37,12 +37,12 @@ docker compose exec backend python manage.py seed
 Пароль для всех: **demo1234**
 
 | Логин      | Роль     | Отображаемое имя |
-|------------|----------|-----------------|
-| chatter1   | chatter  | Alice           |
-| chatter2   | chatter  | Bob             |
-| chatter3   | chatter  | Carol           |
-| chatter4   | chatter  | Dave            |
-| teamlead1  | teamlead | Team Lead       |
+|------------|----------|----------------- |
+| chatter1   | chatter  | chatter1         |
+| chatter2   | chatter  | chatter2         |
+| chatter3   | chatter  | chatter3         |
+| chatter4   | chatter  | chatter4         |
+| teamlead1  | teamlead | Team Lead        |
 
 ---
 

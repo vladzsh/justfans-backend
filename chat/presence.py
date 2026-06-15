@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 
 import redis as redis_lib
@@ -22,8 +23,13 @@ def _get_redis():
         return None
 
 
-def set_presence(user_id: int) -> None:
-    """Mark user as online (ephemeral) and update last seen (persistent)."""
+def set_presence(user_id: int, channel_name: str) -> None:
+    """Mark one connection of a user as online and refresh last seen.
+
+    Presence is tracked per connection (Redis sorted set, member = WS channel,
+    score = expiry timestamp) so a user with several open tabs stays online
+    until the *last* connection drops. Each call also prunes expired members.
+    """
     client = _get_redis()
     if client is None:
         return
@@ -31,33 +37,38 @@ def set_presence(user_id: int) -> None:
     presence_key = f"presence:{user_id}"
     last_seen_key = f"last_seen:{user_id}"
     try:
-        now_iso = datetime.now(tz=timezone.utc).isoformat()
-        # Ephemeral key for 'online' status
-        client.setex(presence_key, ttl, "1")
-        # Persistent key for 'last seen' timestamp
-        client.set(last_seen_key, now_iso)
+        now = time.time()
+        client.zadd(presence_key, {channel_name: now + ttl})
+        client.zremrangebyscore(presence_key, "-inf", now)
+        client.expire(presence_key, ttl)
+        client.set(last_seen_key, datetime.now(tz=timezone.utc).isoformat())
     except Exception as e:
         logger.debug("Presence set failed: %s", e)
 
 
-def delete_presence(user_id: int) -> None:
-    """Remove ephemeral presence key on explicit disconnect."""
+def delete_presence(user_id: int, channel_name: str) -> None:
+    """Drop a single connection's presence on disconnect (other tabs survive)."""
     client = _get_redis()
     if client is None:
         return
     try:
-        client.delete(f"presence:{user_id}")
+        client.zrem(f"presence:{user_id}", channel_name)
     except Exception as e:
         logger.debug("Presence delete failed: %s", e)
 
 
 def get_presence_data(user_id: int) -> dict:
-    """Return {'connected': bool, 'last_seen': iso str or None}."""
+    """Return {'connected': bool, 'last_seen': iso str or None}.
+
+    Connected iff at least one non-expired connection remains.
+    """
     client = _get_redis()
     if client is None:
         return {"connected": False, "last_seen": None}
+    presence_key = f"presence:{user_id}"
     try:
-        is_connected = client.exists(f"presence:{user_id}")
+        client.zremrangebyscore(presence_key, "-inf", time.time())
+        is_connected = client.zcard(presence_key) > 0
         last_seen = client.get(f"last_seen:{user_id}")
         return {
             "connected": bool(is_connected),

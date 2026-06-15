@@ -39,7 +39,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
         if user.role == "chatter":
-            await sync_to_async(set_presence)(user.id)
+            await sync_to_async(set_presence)(user.id, self.channel_name)
             await self._push_monitor_update(user.id)
 
     async def disconnect(self, close_code):
@@ -50,7 +50,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
         if self.user.role == "chatter":
-            await sync_to_async(delete_presence)(self.user.id)
+            await sync_to_async(delete_presence)(self.user.id, self.channel_name)
             await self._push_monitor_update(self.user.id)
 
     async def receive(self, text_data):
@@ -64,7 +64,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if msg_type == "ping":
             if self.user.role == "chatter":
-                await sync_to_async(set_presence)(self.user.id)
+                await sync_to_async(set_presence)(self.user.id, self.channel_name)
                 last_seen = timezone.now().isoformat()
                 await self.channel_layer.group_send(
                     "monitor",
